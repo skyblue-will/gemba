@@ -8,32 +8,41 @@ import { useSmartPoll } from '@/lib/poll'
 
 export default function Home() {
   const { state, loading, fetchState } = useSmartPoll()
-  const [lastSync, setLastSync] = useState<Date | null>(null)
+  const [unprocessedCount, setUnprocessedCount] = useState(0)
 
-  // Fetch map state once on page load
+  async function fetchUnprocessedCount() {
+    try {
+      const res = await fetch('/api/journal?unprocessed=true')
+      if (res.ok) {
+        const data = await res.json()
+        setUnprocessedCount(data.length)
+      }
+    } catch {}
+  }
+
   useEffect(() => {
-    fetchState().then(() => setLastSync(new Date()))
+    fetchState()
+    fetchUnprocessedCount()
   }, [fetchState])
-
-  // No auto-polling after journal submit. Map updates only on:
-  // 1. Page load (above)
-  // 2. Manual refresh (button below)
-  // 3. After running /gemba-sync (user refreshes page)
 
   const handleRefresh = useCallback(() => {
-    fetchState().then(() => setLastSync(new Date()))
+    fetchState()
+    fetchUnprocessedCount()
   }, [fetchState])
+
+  const handleEntryCreated = useCallback(() => {
+    setUnprocessedCount(prev => prev + 1)
+  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-[var(--bg-base)] text-[var(--text-secondary)]">
       <TopBar onRefresh={handleRefresh} />
       <div className="flex flex-1 overflow-hidden max-md:flex-col">
-        <JournalPanel onEntryCreated={() => {}} />
+        <JournalPanel onEntryCreated={handleEntryCreated} />
         <MapCanvas
           state={state}
           loading={loading}
-          extracting={false}
-          lastSync={lastSync}
+          unprocessedCount={unprocessedCount}
         />
       </div>
     </div>

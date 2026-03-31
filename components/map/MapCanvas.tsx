@@ -8,8 +8,7 @@ import type { MapState } from '@/lib/types'
 interface MapCanvasProps {
   state: MapState | null
   loading: boolean
-  extracting: boolean
-  lastSync: Date | null
+  unprocessedCount: number
 }
 
 function autoPlace(index: number): { x: number; y: number } {
@@ -22,7 +21,7 @@ function isValidPosition(pos: { x: number; y: number } | null): pos is { x: numb
   return pos !== null && (pos.x > 10 || pos.y > 10)
 }
 
-export function MapCanvas({ state, loading, extracting, lastSync }: MapCanvasProps) {
+export function MapCanvas({ state, loading, unprocessedCount }: MapCanvasProps) {
   const handlePositionChange = useCallback(async (roleId: string, position: { x: number; y: number }) => {
     try {
       await fetch(`/api/roles/${roleId}`, {
@@ -50,7 +49,7 @@ export function MapCanvas({ state, loading, extracting, lastSync }: MapCanvasPro
           background: 'radial-gradient(circle at 30% 40%, #7c6ff008 0%, transparent 50%), radial-gradient(circle at 70% 60%, #f07c6f06 0%, transparent 50%), var(--bg-base)',
         }}
       >
-        <AgentStatus extracting={extracting} lastSync={lastSync} />
+        <AgentStatus unprocessedCount={unprocessedCount} />
         {extracting ? (
           <div className="text-center max-w-md px-8">
             <div className="text-lg text-[var(--text-primary)] mb-2 animate-pulse">
