@@ -61,7 +61,7 @@ RULES:
    - "making progress," "shipped," "working" -> progressing
    - "done," "resolved," "under control" -> clear
 
-4. Vague entries get minimal extraction. "Feeling stressed today" should NOT create a new story called "Stress." Only create stories for specific situations or events.
+4. Life moments ARE stories. If someone writes about watching their kid perform, having dinner with friends, or a nice walk — that IS a story in a role. "Watching Holly's Taylor Swift show" is a story in the Parent role with state "progressing" (life is going well here). Only skip truly contentless entries like "meh" or "..." with no discernible event or feeling. Err on the side of creating stories. The map should reflect ALL of life, not just problems.
 
 5. Problems emerge from gaps between story reality and role vision. Example: Role vision = "Ship products that matter." Story = "Can't hire." Problem = "Engineering capacity gap blocking shipping."
 
