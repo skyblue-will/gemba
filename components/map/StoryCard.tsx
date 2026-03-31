@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { StateDot } from './StateDot'
 import { ProblemCard } from './ProblemCard'
@@ -20,11 +20,15 @@ interface StoryCardProps {
   story: StoryWithChildren
   depth?: number
   onStateChange?: (storyId: string, newState: StoryState) => void
+  onReply?: (storyId: string, body: string) => void
 }
 
-export function StoryCard({ story, depth = 0, onStateChange }: StoryCardProps) {
+export function StoryCard({ story, depth = 0, onStateChange, onReply }: StoryCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [currentState, setCurrentState] = useState<StoryState>(story.state)
+  const [replying, setReplying] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const hasChildren = story.children.length > 0 || story.problems.length > 0
   const isDormant = currentState === 'dormant'
   const isActive = story.lastMentioned
@@ -45,6 +49,34 @@ export function StoryCard({ story, depth = 0, onStateChange }: StoryCardProps) {
     }
   }
 
+  function handleCardClick() {
+    if (hasChildren) {
+      setExpanded(!expanded)
+    } else {
+      setReplying(true)
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }
+
+  function handleReplySubmit() {
+    const trimmed = replyText.trim()
+    if (!trimmed) return
+    onReply?.(story.id, trimmed)
+    setReplyText('')
+    setReplying(false)
+  }
+
+  function handleReplyKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleReplySubmit()
+    }
+    if (e.key === 'Escape') {
+      setReplying(false)
+      setReplyText('')
+    }
+  }
+
   return (
     <motion.div
       layout
@@ -54,13 +86,11 @@ export function StoryCard({ story, depth = 0, onStateChange }: StoryCardProps) {
       transition={{ duration: 0.5 }}
     >
       <div
-        onClick={() => hasChildren && setExpanded(!expanded)}
-        className={`w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors ${
+        onClick={handleCardClick}
+        className={`w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors cursor-pointer ${
           isActive ? 'bg-[var(--accent)]08' : 'bg-[var(--bg-elevated)]80'
-        } border border-[var(--border)] hover:border-[var(--text-muted)] ${
-          hasChildren ? 'cursor-pointer' : 'cursor-default'
-        }`}
-        role={hasChildren ? 'button' : undefined}
+        } border border-[var(--border)] hover:border-[var(--text-muted)]`}
+        role="button"
         aria-expanded={hasChildren ? expanded : undefined}
       >
         <StateDot state={currentState} onClick={handleStateChange} />
@@ -75,12 +105,59 @@ export function StoryCard({ story, depth = 0, onStateChange }: StoryCardProps) {
             {timeAgo(story.lastMentioned)}
           </div>
         </div>
-        {hasChildren && (
-          <span className="text-[10px] text-[var(--text-muted)] mt-1">
-            {expanded ? '▾' : '▸'}
-          </span>
-        )}
+        <div className="flex items-center gap-1 mt-1">
+          {!replying && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setReplying(true)
+                setTimeout(() => inputRef.current?.focus(), 100)
+              }}
+              className="text-[10px] text-[var(--text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--accent)] transition-all px-1"
+              title="Reply to this story"
+            >
+              ↩
+            </button>
+          )}
+          {hasChildren && (
+            <span className="text-[10px] text-[var(--text-muted)]">
+              {expanded ? '▾' : '▸'}
+            </span>
+          )}
+        </div>
       </div>
+
+      <AnimatePresence>
+        {replying && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden mt-1"
+          >
+            <div className="flex items-center gap-2 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-2.5 py-1.5">
+              <span className="text-[10px] text-[var(--accent)] shrink-0">↩</span>
+              <input
+                ref={inputRef}
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={handleReplyKeyDown}
+                placeholder={`Reply to "${story.label.slice(0, 30)}..."`}
+                className="flex-1 bg-transparent border-none text-[12px] text-[var(--text-secondary)] outline-none placeholder:text-[var(--text-muted)]"
+                maxLength={2000}
+              />
+              <button
+                onClick={handleReplySubmit}
+                disabled={!replyText.trim()}
+                className="text-[10px] text-[var(--accent)] disabled:opacity-30"
+              >
+                Send
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {expanded && (
@@ -95,7 +172,7 @@ export function StoryCard({ story, depth = 0, onStateChange }: StoryCardProps) {
               <ProblemCard key={p.id} problem={p} />
             ))}
             {story.children.map(child => (
-              <StoryCard key={child.id} story={child} depth={0} onStateChange={onStateChange} />
+              <StoryCard key={child.id} story={child} depth={0} onStateChange={onStateChange} onReply={onReply} />
             ))}
           </motion.div>
         )}

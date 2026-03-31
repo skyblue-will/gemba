@@ -9,6 +9,7 @@ interface MapCanvasProps {
   state: MapState | null
   loading: boolean
   unprocessedCount: number
+  onReply?: (storyId: string, body: string) => void
 }
 
 function autoPlace(index: number): { x: number; y: number } {
@@ -21,7 +22,7 @@ function isValidPosition(pos: { x: number; y: number } | null): pos is { x: numb
   return pos !== null && (pos.x > 10 || pos.y > 10)
 }
 
-export function MapCanvas({ state, loading, unprocessedCount }: MapCanvasProps) {
+export function MapCanvas({ state, loading, unprocessedCount, onReply }: MapCanvasProps) {
   const handlePositionChange = useCallback(async (roleId: string, position: { x: number; y: number }) => {
     try {
       await fetch(`/api/roles/${roleId}`, {
@@ -89,6 +90,7 @@ export function MapCanvas({ state, loading, unprocessedCount }: MapCanvasProps) 
           key={role.id}
           role={role}
           onPositionChange={handlePositionChange}
+          onReply={onReply}
         />
       ))}
     </div>

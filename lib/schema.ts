@@ -39,6 +39,7 @@ export const problems = pgTable('problems', {
 export const journalEntries = pgTable('journal_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
   body: text('body').notNull(),
+  storyId: uuid('story_id').references(() => stories.id, { onDelete: 'set null' }),
   processed: boolean('processed').default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 })

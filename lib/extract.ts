@@ -92,11 +92,21 @@ For create_problem, use the storyLabel of the story the problem belongs to.`
 
 export async function extractFromEntries(
   state: MapState,
-  entries: Array<{ id: string; body: string; processed: boolean | null; createdAt: Date | null }>
+  entries: Array<{ id: string; body: string; storyId?: string | null; processed: boolean | null; createdAt: Date | null }>
 ): Promise<z.infer<typeof ActionSchema>['actions']> {
-  const entriesText = entries.map(e =>
-    `[${e.createdAt?.toISOString() || 'unknown'}] ${e.body}`
-  ).join('\n\n')
+  // Find story labels for scoped entries
+  const allStories = state.roles.flatMap(r => {
+    const collect = (s: any): any[] => [s, ...(s.children || []).flatMap(collect)]
+    return r.stories.flatMap(collect)
+  })
+  const storyById = new Map(allStories.map(s => [s.id, s]))
+
+  const entriesText = entries.map(e => {
+    const scope = e.storyId && storyById.has(e.storyId)
+      ? ` [REPLY TO STORY: "${storyById.get(e.storyId)!.label}" (id: ${e.storyId})]`
+      : ''
+    return `[${e.createdAt?.toISOString() || 'unknown'}]${scope} ${e.body}`
+  }).join('\n\n')
 
   const { experimental_output } = await generateText({
     model: 'anthropic/claude-sonnet-4.6' as any,

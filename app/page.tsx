@@ -34,6 +34,17 @@ export default function Home() {
     setUnprocessedCount(prev => prev + 1)
   }, [])
 
+  const handleReply = useCallback(async (storyId: string, body: string) => {
+    try {
+      await fetch('/api/journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body, storyId }),
+      })
+      setUnprocessedCount(prev => prev + 1)
+    } catch {}
+  }, [])
+
   return (
     <div className="h-screen flex flex-col bg-[var(--bg-base)] text-[var(--text-secondary)]">
       <TopBar onRefresh={handleRefresh} />
@@ -43,6 +54,7 @@ export default function Home() {
           state={state}
           loading={loading}
           unprocessedCount={unprocessedCount}
+          onReply={handleReply}
         />
       </div>
     </div>

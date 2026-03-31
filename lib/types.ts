@@ -38,6 +38,7 @@ export interface Problem {
 export interface JournalEntry {
   id: string
   body: string
+  storyId: string | null
   processed: boolean | null
   createdAt: Date | null
 }

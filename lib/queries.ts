@@ -14,8 +14,8 @@ export async function listJournalEntries(unprocessedOnly = false) {
   return db.select().from(journalEntries).orderBy(journalEntries.createdAt)
 }
 
-export async function createJournalEntry(body: string) {
-  const [entry] = await db.insert(journalEntries).values({ body }).returning()
+export async function createJournalEntry(body: string, storyId?: string) {
+  const [entry] = await db.insert(journalEntries).values({ body, storyId: storyId || null }).returning()
   return entry
 }
 

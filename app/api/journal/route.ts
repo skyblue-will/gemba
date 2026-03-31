@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { body } = await request.json()
+  const { body, storyId } = await request.json()
 
   if (!body || typeof body !== 'string' || body.trim().length === 0) {
     return NextResponse.json({ error: 'body is required' }, { status: 400 })
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'body exceeds 2000 character limit' }, { status: 400 })
   }
 
-  const entry = await createJournalEntry(body.trim())
+  const entry = await createJournalEntry(body.trim(), storyId)
 
   return NextResponse.json(entry, { status: 201 })
 }

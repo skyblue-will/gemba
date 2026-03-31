@@ -8,9 +8,10 @@ import type { Role } from '@/lib/types'
 interface RoleContainerProps {
   role: Role
   onPositionChange?: (roleId: string, position: { x: number; y: number }) => void
+  onReply?: (storyId: string, body: string) => void
 }
 
-export function RoleContainer({ role, onPositionChange }: RoleContainerProps) {
+export function RoleContainer({ role, onPositionChange, onReply }: RoleContainerProps) {
   const activeCount = role.stories.filter(s => s.state !== 'dormant').length
   const constraintsRef = useRef(null)
 
@@ -67,7 +68,7 @@ export function RoleContainer({ role, onPositionChange }: RoleContainerProps) {
           </p>
         )}
         {role.stories.map(story => (
-          <StoryCard key={story.id} story={story} />
+          <StoryCard key={story.id} story={story} onReply={onReply} />
         ))}
       </div>
     </motion.div>
