@@ -35,6 +35,7 @@ export function JournalPanel({ onEntryCreated }: JournalPanelProps) {
     const optimistic: JournalEntry = {
       id: 'temp-' + Date.now(),
       body,
+      storyId: null,
       processed: false,
       createdAt: new Date(),
     }
