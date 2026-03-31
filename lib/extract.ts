@@ -28,6 +28,13 @@ const ActionSchema = z.object({
       }),
     }),
     z.object({
+      type: z.literal('create_substory'),
+      parentStoryId: z.string(),
+      label: z.string(),
+      narrative: z.string(),
+      state: z.enum(['burning', 'messy', 'stuck', 'progressing', 'clear']),
+    }),
+    z.object({
       type: z.literal('create_problem'),
       storyLabel: z.string(),
       description: z.string(),
@@ -37,10 +44,16 @@ const ActionSchema = z.object({
 })
 
 function buildSystemPrompt(state: MapState): string {
+  function describeStory(s: any, indent: string): string {
+    let line = `${indent}- [${s.id}] "${s.label}" (state: ${s.state})`
+    if (s.children && s.children.length > 0) {
+      line += '\n' + s.children.map((c: any) => describeStory(c, indent + '  ')).join('\n')
+    }
+    return line
+  }
+
   const rolesDesc = state.roles.map(r => {
-    const storiesDesc = r.stories.map(s =>
-      `  - [${s.id}] "${s.label}" (state: ${s.state})`
-    ).join('\n')
+    const storiesDesc = r.stories.map(s => describeStory(s, '  ')).join('\n')
     return `Role: "${r.name}" (vision: ${r.vision || 'not set'})\n${storiesDesc || '  (no stories yet)'}`
   }).join('\n\n')
 
@@ -67,10 +80,13 @@ RULES:
 
 6. One entry can affect multiple stories across different roles.
 
-7. Be conservative. When unsure, update an existing story rather than creating a new one. When very unsure, do nothing.
+7. SUB-STORIES for goals and projects. When a story has a clear goal or deadline (like "Get Holly riding her bike by Easter"), future journal entries about steps toward that goal should become sub-stories (create_substory with parentStoryId), not new top-level stories. Examples: "Russell fixed the bike" is a sub-story of "Get Holly riding her bike." "Holly tried riding but the seat was too high" is another sub-story. The parent story's state updates based on overall progress. Sub-stories let the user drill down into the steps of a larger story.
+
+8. Be conservative. When unsure, update an existing story rather than creating a new one. When very unsure, do nothing.
 
 For create_story, use roleNames that match existing role names. If no role fits, include a new role name and also emit a create_role action for it.
 For update_story, use the exact storyId from the current state above.
+For create_substory, use the exact parentStoryId from the current state above. The sub-story inherits the parent's role.
 For create_problem, use the storyLabel of the story the problem belongs to.`
 }
 
@@ -121,6 +137,15 @@ export async function extractFromEntries(
             narrative: action.narrative,
             state: action.state,
             roleIds,
+          })
+          break
+        }
+        case 'create_substory': {
+          await createStory({
+            label: action.label,
+            narrative: action.narrative,
+            state: action.state,
+            parentId: action.parentStoryId,
           })
           break
         }
