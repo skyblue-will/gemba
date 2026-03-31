@@ -15,7 +15,11 @@ interface MapCanvasProps {
 function autoPlace(index: number): { x: number; y: number } {
   const col = index % 2
   const row = Math.floor(index / 2)
-  return { x: 24 + col * 340, y: 48 + row * 280 }
+  return { x: 24 + col * 340, y: 56 + row * 280 }
+}
+
+function isValidPosition(pos: { x: number; y: number } | null): pos is { x: number; y: number } {
+  return pos !== null && (pos.x > 10 || pos.y > 10)
 }
 
 export function MapCanvas({ state, loading, extracting, lastSync }: MapCanvasProps) {
@@ -69,7 +73,7 @@ export function MapCanvas({ state, loading, extracting, lastSync }: MapCanvasPro
 
   const rolesWithPositions = state.roles.map((role, i) => ({
     ...role,
-    position: role.position ?? autoPlace(i),
+    position: isValidPosition(role.position) ? role.position : autoPlace(i),
   }))
 
   return (
