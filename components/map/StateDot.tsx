@@ -21,19 +21,37 @@ const stateLabels: Record<StoryState, string> = {
   dormant: 'Dormant',
 }
 
-export function StateDot({ state, size = 10 }: { state: StoryState; size?: number }) {
+const stateCycle: StoryState[] = ['burning', 'messy', 'stuck', 'progressing', 'clear']
+
+interface StateDotProps {
+  state: StoryState
+  size?: number
+  onClick?: (nextState: StoryState) => void
+}
+
+export function StateDot({ state, size = 10, onClick }: StateDotProps) {
   const color = stateColors[state]
   const isBurning = state === 'burning'
+  const isClickable = !!onClick && state !== 'dormant'
+
+  function handleClick(e: React.MouseEvent) {
+    if (!onClick || state === 'dormant') return
+    e.stopPropagation()
+    const currentIdx = stateCycle.indexOf(state)
+    const nextIdx = (currentIdx + 1) % stateCycle.length
+    onClick(stateCycle[nextIdx])
+  }
 
   return (
     <motion.div
-      className="rounded-full shrink-0"
+      className={`rounded-full shrink-0 ${isClickable ? 'cursor-pointer hover:scale-150' : ''}`}
       style={{
         width: size,
         height: size,
         backgroundColor: color,
         boxShadow: state !== 'dormant' ? `0 0 ${size * 0.8}px ${color}60` : 'none',
         opacity: state === 'dormant' ? 0.5 : 1,
+        transition: 'transform 0.15s ease',
       }}
       animate={isBurning ? {
         boxShadow: [
@@ -43,9 +61,10 @@ export function StateDot({ state, size = 10 }: { state: StoryState; size?: numbe
         ],
       } : undefined}
       transition={isBurning ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' } : undefined}
-      role="img"
-      aria-label={stateLabels[state]}
-      title={stateLabels[state]}
+      onClick={handleClick}
+      role={isClickable ? 'button' : 'img'}
+      aria-label={`${stateLabels[state]}${isClickable ? ' (click to change)' : ''}`}
+      title={`${stateLabels[state]}${isClickable ? ' — click to cycle' : ''}`}
     />
   )
 }

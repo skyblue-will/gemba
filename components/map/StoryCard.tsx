@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { StateDot } from './StateDot'
 import { ProblemCard } from './ProblemCard'
-import type { StoryWithChildren } from '@/lib/types'
+import type { StoryWithChildren, StoryState } from '@/lib/types'
 
 function timeAgo(date: Date | null): string {
   if (!date) return ''
@@ -16,13 +16,34 @@ function timeAgo(date: Date | null): string {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function StoryCard({ story, depth = 0 }: { story: StoryWithChildren; depth?: number }) {
+interface StoryCardProps {
+  story: StoryWithChildren
+  depth?: number
+  onStateChange?: (storyId: string, newState: StoryState) => void
+}
+
+export function StoryCard({ story, depth = 0, onStateChange }: StoryCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [currentState, setCurrentState] = useState<StoryState>(story.state)
   const hasChildren = story.children.length > 0 || story.problems.length > 0
-  const isDormant = story.state === 'dormant'
+  const isDormant = currentState === 'dormant'
   const isActive = story.lastMentioned
     ? new Date().getTime() - new Date(story.lastMentioned).getTime() < 86400000
     : false
+
+  async function handleStateChange(nextState: StoryState) {
+    setCurrentState(nextState)
+    try {
+      await fetch(`/api/stories/${story.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: nextState }),
+      })
+      onStateChange?.(story.id, nextState)
+    } catch {
+      setCurrentState(story.state)
+    }
+  }
 
   return (
     <motion.div
@@ -32,16 +53,17 @@ export function StoryCard({ story, depth = 0 }: { story: StoryWithChildren; dept
       animate={{ opacity: isDormant ? 0.4 : 1 }}
       transition={{ duration: 0.5 }}
     >
-      <button
+      <div
         onClick={() => hasChildren && setExpanded(!expanded)}
         className={`w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors ${
           isActive ? 'bg-[var(--accent)]08' : 'bg-[var(--bg-elevated)]80'
         } border border-[var(--border)] hover:border-[var(--text-muted)] ${
           hasChildren ? 'cursor-pointer' : 'cursor-default'
         }`}
+        role={hasChildren ? 'button' : undefined}
         aria-expanded={hasChildren ? expanded : undefined}
       >
-        <StateDot state={story.state} />
+        <StateDot state={currentState} onClick={handleStateChange} />
         <div className="flex-1 min-w-0">
           <div className="text-[12.5px] leading-snug text-[var(--text-secondary)]">
             <span className="font-medium text-[var(--text-primary)]">{story.label}</span>
@@ -58,7 +80,7 @@ export function StoryCard({ story, depth = 0 }: { story: StoryWithChildren; dept
             {expanded ? '▾' : '▸'}
           </span>
         )}
-      </button>
+      </div>
 
       <AnimatePresence>
         {expanded && (
@@ -73,7 +95,7 @@ export function StoryCard({ story, depth = 0 }: { story: StoryWithChildren; dept
               <ProblemCard key={p.id} problem={p} />
             ))}
             {story.children.map(child => (
-              <StoryCard key={child.id} story={child} depth={0} />
+              <StoryCard key={child.id} story={child} depth={0} onStateChange={onStateChange} />
             ))}
           </motion.div>
         )}
