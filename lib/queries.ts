@@ -79,6 +79,18 @@ export async function createProblem(data: { storyId?: string; description: strin
   return problem
 }
 
+// ── Reset ──
+
+export async function resetMap() {
+  // Delete in dependency order: problems → storyRoles → stories → roles
+  // Then mark all journal entries as unprocessed and clear their story links
+  await db.delete(problems)
+  await db.delete(storyRoles)
+  await db.delete(stories)
+  await db.delete(roles)
+  await db.update(journalEntries).set({ processed: false, storyId: null })
+}
+
 // ── Map State (recursive tree) ──
 
 export async function getMapState(): Promise<MapState> {

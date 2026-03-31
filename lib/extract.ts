@@ -65,7 +65,7 @@ ${rolesDesc || '(empty - no roles or stories yet)'}
 RULES:
 1. MATCH before CREATE. Before creating a new story, check if an existing story matches by semantic similarity. "Sarah conflict" and "Roadmap pushback from Sarah" are the same story. Use the existing story's ID for update_story.
 
-2. MATCH roles by intent, not name. "Work," "CEO," "Company," "My job" are all the same role. Match to the closest existing role. Only create a new role if no existing role covers this life area.
+2. Roles are ACTUAL ROLES — the hat you wear, the identity you step into. Name them as roles a person holds, not abstract life domains. Good examples: "Father", "AI Lead at Alertacall", "Brand Builder", "Friend", "Husband". Bad examples: "Work", "Career", "Personal", "Family". "Work" is not a role — "Senior Developer at Acme" is. "Personal" is not a role — "Friend" or "Adventurer" is. Match to the closest existing role by intent. Only create a new role if no existing role covers this identity.
 
 3. Infer state from emotional tone:
    - "on fire," "urgent," "crisis" -> burning
@@ -74,7 +74,7 @@ RULES:
    - "making progress," "shipped," "working" -> progressing
    - "done," "resolved," "under control" -> clear
 
-4. Life moments ARE stories. If someone writes about watching their kid perform, having dinner with friends, or a nice walk — that IS a story in a role. "Watching Holly's Taylor Swift show" is a story in the Parent role with state "progressing" (life is going well here). Only skip truly contentless entries like "meh" or "..." with no discernible event or feeling. Err on the side of creating stories. The map should reflect ALL of life, not just problems.
+4. Life moments ARE stories. If someone writes about watching their kid perform, having dinner with friends, or a nice walk — that IS a story in a role. "Watching Holly's Taylor Swift show" is a story in a "Father" role with state "progressing" (life is going well here). Only skip truly contentless entries like "meh" or "..." with no discernible event or feeling. Err on the side of creating stories. The map should reflect ALL of life, not just problems.
 
 5. Problems emerge from gaps between story reality and role vision. Example: Role vision = "Ship products that matter." Story = "Can't hire." Problem = "Engineering capacity gap blocking shipping."
 
