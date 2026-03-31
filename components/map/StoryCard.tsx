@@ -86,6 +86,7 @@ export function StoryCard({ story, depth = 0, onStateChange, onReply }: StoryCar
     <motion.div
       layout
       className="mb-1.5"
+      data-story-id={story.id}
       style={{ opacity: isDormant ? 0.4 : 1 }}
       animate={{ opacity: isDormant ? 0.4 : 1 }}
       transition={{ duration: 0.5 }}

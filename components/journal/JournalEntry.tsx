@@ -20,9 +20,10 @@ interface JournalEntryCardProps {
   entry: JournalEntryType
   storyLabel?: string
   onDelete?: (id: string) => void
+  onScrollToStory?: (storyId: string) => void
 }
 
-export function JournalEntryCard({ entry, storyLabel, onDelete }: JournalEntryCardProps) {
+export function JournalEntryCard({ entry, storyLabel, onDelete, onScrollToStory }: JournalEntryCardProps) {
   const isRecent = entry.createdAt
     ? new Date().getTime() - new Date(entry.createdAt).getTime() < 3600000
     : false
@@ -42,9 +43,16 @@ export function JournalEntryCard({ entry, storyLabel, onDelete }: JournalEntryCa
           {timeAgo(entry.createdAt)}
         </span>
         {isReply && storyLabel && (
-          <span className="text-[10px] text-[var(--accent)] truncate max-w-[160px]" title={`Reply to: ${storyLabel}`}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onScrollToStory?.(entry.storyId!)
+            }}
+            className="text-[10px] text-[var(--accent)] truncate max-w-[160px] hover:underline cursor-pointer"
+            title={`Jump to: ${storyLabel}`}
+          >
             ↩ {storyLabel}
-          </span>
+          </button>
         )}
         {entry.processed && (
           <span className="text-[10px] text-[var(--state-progressing)]" title="Mapped">✓</span>

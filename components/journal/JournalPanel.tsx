@@ -8,9 +8,10 @@ import type { JournalEntry, MapState } from '@/lib/types'
 interface JournalPanelProps {
   onEntryCreated: () => void
   mapState: MapState | null
+  onScrollToStory?: (storyId: string) => void
 }
 
-export function JournalPanel({ onEntryCreated, mapState }: JournalPanelProps) {
+export function JournalPanel({ onEntryCreated, mapState, onScrollToStory }: JournalPanelProps) {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [submitting, setSubmitting] = useState(false)
   const feedRef = useRef<HTMLDivElement>(null)
@@ -106,6 +107,7 @@ export function JournalPanel({ onEntryCreated, mapState }: JournalPanelProps) {
             entry={entry}
             storyLabel={entry.storyId ? storyLabelMap.get(entry.storyId) : undefined}
             onDelete={handleDelete}
+            onScrollToStory={onScrollToStory}
           />
         ))}
       </div>

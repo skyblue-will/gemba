@@ -34,6 +34,15 @@ export default function Home() {
     setUnprocessedCount(prev => prev + 1)
   }, [])
 
+  const handleScrollToStory = useCallback((storyId: string) => {
+    const el = document.querySelector(`[data-story-id="${storyId}"]`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('ring-2', 'ring-[var(--accent)]', 'rounded-lg')
+      setTimeout(() => el.classList.remove('ring-2', 'ring-[var(--accent)]', 'rounded-lg'), 2000)
+    }
+  }, [])
+
   const handleReply = useCallback(async (storyId: string, body: string) => {
     try {
       await fetch('/api/journal', {
@@ -49,7 +58,7 @@ export default function Home() {
     <div className="h-screen flex flex-col bg-[var(--bg-base)] text-[var(--text-secondary)]">
       <TopBar onRefresh={handleRefresh} />
       <div className="flex flex-1 overflow-hidden max-md:flex-col">
-        <JournalPanel onEntryCreated={handleEntryCreated} mapState={state} />
+        <JournalPanel onEntryCreated={handleEntryCreated} mapState={state} onScrollToStory={handleScrollToStory} />
         <MapCanvas
           state={state}
           loading={loading}
