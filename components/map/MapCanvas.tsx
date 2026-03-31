@@ -51,22 +51,11 @@ export function MapCanvas({ state, loading, unprocessedCount, onReply }: MapCanv
         }}
       >
         <AgentStatus unprocessedCount={unprocessedCount} />
-        {extracting ? (
-          <div className="text-center max-w-md px-8">
-            <div className="text-lg text-[var(--text-primary)] mb-2 animate-pulse">
-              Mapping your world...
-            </div>
-            <p className="text-sm text-[var(--text-muted)]">
-              Creating roles and stories from what you wrote.
-            </p>
-          </div>
-        ) : (
-          <div className="text-center max-w-md px-8">
-            <p className="text-sm text-[var(--text-muted)]">
-              Your map will appear here as you journal.
-            </p>
-          </div>
-        )}
+        <div className="text-center max-w-md px-8">
+          <p className="text-sm text-[var(--text-muted)]">
+            Your map will appear here. Journal your thoughts, then run /gemba-sync.
+          </p>
+        </div>
       </div>
     )
   }
