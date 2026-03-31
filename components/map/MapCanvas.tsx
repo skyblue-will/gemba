@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback } from 'react'
 import { RoleContainer } from './RoleContainer'
 import { AgentStatus } from './AgentStatus'
 import type { MapState } from '@/lib/types'
@@ -11,7 +12,23 @@ interface MapCanvasProps {
   lastSync: Date | null
 }
 
+function autoPlace(index: number): { x: number; y: number } {
+  const col = index % 2
+  const row = Math.floor(index / 2)
+  return { x: 24 + col * 340, y: 48 + row * 280 }
+}
+
 export function MapCanvas({ state, loading, extracting, lastSync }: MapCanvasProps) {
+  const handlePositionChange = useCallback(async (roleId: string, position: { x: number; y: number }) => {
+    try {
+      await fetch(`/api/roles/${roleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position }),
+      })
+    } catch {}
+  }, [])
+
   if (loading) {
     return (
       <div className="flex-1 relative bg-[var(--bg-base)] flex items-center justify-center">
@@ -50,20 +67,27 @@ export function MapCanvas({ state, loading, extracting, lastSync }: MapCanvasPro
     )
   }
 
+  const rolesWithPositions = state.roles.map((role, i) => ({
+    ...role,
+    position: role.position ?? autoPlace(i),
+  }))
+
   return (
     <div
-      className="flex-1 relative overflow-auto p-6"
+      className="flex-1 relative overflow-auto"
       style={{
         background: 'radial-gradient(circle at 30% 40%, #7c6ff008 0%, transparent 50%), radial-gradient(circle at 70% 60%, #f07c6f06 0%, transparent 50%), var(--bg-base)',
       }}
     >
       <AgentStatus extracting={extracting} lastSync={lastSync} />
 
-      <div className="flex flex-wrap gap-4 items-start">
-        {state.roles.map(role => (
-          <RoleContainer key={role.id} role={role} />
-        ))}
-      </div>
+      {rolesWithPositions.map(role => (
+        <RoleContainer
+          key={role.id}
+          role={role}
+          onPositionChange={handlePositionChange}
+        />
+      ))}
     </div>
   )
 }

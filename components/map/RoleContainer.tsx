@@ -1,21 +1,39 @@
 'use client'
 
+import { useRef } from 'react'
 import { motion } from 'framer-motion'
 import { StoryCard } from './StoryCard'
 import type { Role } from '@/lib/types'
 
-export function RoleContainer({ role }: { role: Role }) {
+interface RoleContainerProps {
+  role: Role
+  onPositionChange?: (roleId: string, position: { x: number; y: number }) => void
+}
+
+export function RoleContainer({ role, onPositionChange }: RoleContainerProps) {
   const activeCount = role.stories.filter(s => s.state !== 'dormant').length
+  const constraintsRef = useRef(null)
 
   return (
     <motion.div
       layout
-      className="border border-[var(--border)] rounded-2xl p-4 bg-[var(--bg-surface)]90 backdrop-blur-sm"
+      className="absolute border border-[var(--border)] rounded-2xl p-4 bg-[var(--bg-surface)]90 backdrop-blur-sm"
       drag
       dragMomentum={false}
-      dragElastic={0.1}
-      whileDrag={{ scale: 1.02, zIndex: 50 }}
-      style={{ minWidth: 240, maxWidth: 320 }}
+      dragElastic={0}
+      whileDrag={{ scale: 1.02, zIndex: 50, cursor: 'grabbing' }}
+      style={{
+        left: role.position?.x ?? 0,
+        top: role.position?.y ?? 0,
+        minWidth: 240,
+        maxWidth: 320,
+        cursor: 'grab',
+      }}
+      onDragEnd={(_, info) => {
+        const newX = (role.position?.x ?? 0) + info.offset.x
+        const newY = (role.position?.y ?? 0) + info.offset.y
+        onPositionChange?.(role.id, { x: Math.max(0, newX), y: Math.max(0, newY) })
+      }}
     >
       <div className="flex items-center gap-2 mb-1">
         {role.icon && (
