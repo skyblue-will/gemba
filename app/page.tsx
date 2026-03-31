@@ -49,7 +49,7 @@ export default function Home() {
     <div className="h-screen flex flex-col bg-[var(--bg-base)] text-[var(--text-secondary)]">
       <TopBar onRefresh={handleRefresh} />
       <div className="flex flex-1 overflow-hidden max-md:flex-col">
-        <JournalPanel onEntryCreated={handleEntryCreated} />
+        <JournalPanel onEntryCreated={handleEntryCreated} mapState={state} />
         <MapCanvas
           state={state}
           loading={loading}

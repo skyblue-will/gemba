@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { JournalInput } from './JournalInput'
 import { JournalEntryCard } from './JournalEntry'
-import type { JournalEntry } from '@/lib/types'
+import type { JournalEntry, MapState } from '@/lib/types'
 
 interface JournalPanelProps {
   onEntryCreated: () => void
+  mapState: MapState | null
 }
 
-export function JournalPanel({ onEntryCreated }: JournalPanelProps) {
+export function JournalPanel({ onEntryCreated, mapState }: JournalPanelProps) {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [submitting, setSubmitting] = useState(false)
   const feedRef = useRef<HTMLDivElement>(null)
@@ -69,6 +70,18 @@ export function JournalPanel({ onEntryCreated }: JournalPanelProps) {
     } catch {}
   }
 
+  // Build story ID -> label map from map state
+  const storyLabelMap = new Map<string, string>()
+  if (mapState) {
+    const collect = (stories: any[]) => {
+      for (const s of stories) {
+        storyLabelMap.set(s.id, s.label)
+        if (s.children) collect(s.children)
+      }
+    }
+    mapState.roles.forEach(r => collect(r.stories))
+  }
+
   // Refresh entries periodically to pick up processed status
   useEffect(() => {
     const interval = setInterval(fetchEntries, 10000)
@@ -88,7 +101,12 @@ export function JournalPanel({ onEntryCreated }: JournalPanelProps) {
           </div>
         )}
         {entries.map(entry => (
-          <JournalEntryCard key={entry.id} entry={entry} onDelete={handleDelete} />
+          <JournalEntryCard
+            key={entry.id}
+            entry={entry}
+            storyLabel={entry.storyId ? storyLabelMap.get(entry.storyId) : undefined}
+            onDelete={handleDelete}
+          />
         ))}
       </div>
 

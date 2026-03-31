@@ -18,25 +18,34 @@ function timeAgo(date: Date | null): string {
 
 interface JournalEntryCardProps {
   entry: JournalEntryType
+  storyLabel?: string
   onDelete?: (id: string) => void
 }
 
-export function JournalEntryCard({ entry, onDelete }: JournalEntryCardProps) {
+export function JournalEntryCard({ entry, storyLabel, onDelete }: JournalEntryCardProps) {
   const isRecent = entry.createdAt
     ? new Date().getTime() - new Date(entry.createdAt).getTime() < 3600000
     : false
   const canDelete = !entry.processed
+  const isReply = !!entry.storyId
 
   return (
     <div
       className={`group p-3 mb-2 rounded-lg bg-[var(--bg-elevated)] border-l-[3px] text-sm leading-relaxed transition-opacity ${
-        isRecent ? 'border-l-[var(--accent)]' : 'border-l-transparent opacity-60'
+        isReply
+          ? 'border-l-[var(--accent)]50'
+          : isRecent ? 'border-l-[var(--accent)]' : 'border-l-transparent opacity-60'
       }`}
     >
       <div className="flex items-center gap-2 mb-1.5">
         <span className="text-[11px] font-mono text-[var(--text-muted)]">
           {timeAgo(entry.createdAt)}
         </span>
+        {isReply && storyLabel && (
+          <span className="text-[10px] text-[var(--accent)] truncate max-w-[160px]" title={`Reply to: ${storyLabel}`}>
+            ↩ {storyLabel}
+          </span>
+        )}
         {entry.processed && (
           <span className="text-[10px] text-[var(--state-progressing)]" title="Mapped">✓</span>
         )}
