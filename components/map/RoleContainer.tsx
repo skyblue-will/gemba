@@ -7,11 +7,13 @@ import type { Role } from '@/lib/types'
 
 interface RoleContainerProps {
   role: Role
+  isFocused?: boolean
+  onFocus?: (roleId: string) => void
   onPositionChange?: (roleId: string, position: { x: number; y: number }) => void
   onReply?: (storyId: string, body: string) => void
 }
 
-export function RoleContainer({ role, onPositionChange, onReply }: RoleContainerProps) {
+export function RoleContainer({ role, isFocused, onFocus, onPositionChange, onReply }: RoleContainerProps) {
   const activeCount = role.stories.filter(s => s.state !== 'dormant').length
   const constraintsRef = useRef(null)
 
@@ -22,13 +24,15 @@ export function RoleContainer({ role, onPositionChange, onReply }: RoleContainer
       drag
       dragMomentum={false}
       dragElastic={0}
-      whileDrag={{ scale: 1.02, zIndex: 50, cursor: 'grabbing' }}
+      whileDrag={{ scale: 1.02, zIndex: 100, cursor: 'grabbing' }}
+      onPointerDown={() => onFocus?.(role.id)}
       style={{
         left: role.position?.x ?? 0,
         top: role.position?.y ?? 0,
         minWidth: 240,
         maxWidth: 320,
         cursor: 'grab',
+        zIndex: isFocused ? 50 : 1,
       }}
       onDragEnd={(_, info) => {
         const newX = (role.position?.x ?? 0) + info.offset.x

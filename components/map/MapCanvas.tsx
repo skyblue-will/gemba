@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { RoleContainer } from './RoleContainer'
 import { AgentStatus } from './AgentStatus'
 import type { MapState } from '@/lib/types'
@@ -23,6 +23,8 @@ function isValidPosition(pos: { x: number; y: number } | null): pos is { x: numb
 }
 
 export function MapCanvas({ state, loading, unprocessedCount, onReply }: MapCanvasProps) {
+  const [focusedRoleId, setFocusedRoleId] = useState<string | null>(null)
+
   const handlePositionChange = useCallback(async (roleId: string, position: { x: number; y: number }) => {
     try {
       await fetch(`/api/roles/${roleId}`, {
@@ -78,6 +80,8 @@ export function MapCanvas({ state, loading, unprocessedCount, onReply }: MapCanv
         <RoleContainer
           key={role.id}
           role={role}
+          isFocused={role.id === focusedRoleId}
+          onFocus={setFocusedRoleId}
           onPositionChange={handlePositionChange}
           onReply={onReply}
         />
