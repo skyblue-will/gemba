@@ -39,7 +39,6 @@ export function StoryCard({ story, depth = 0 }: { story: StoryWithChildren; dept
         } border border-[var(--border)] hover:border-[var(--text-muted)] ${
           hasChildren ? 'cursor-pointer' : 'cursor-default'
         }`}
-        style={{ marginLeft: depth * 16 }}
         aria-expanded={hasChildren ? expanded : undefined}
       >
         <StateDot state={story.state} />
@@ -68,13 +67,13 @@ export function StoryCard({ story, depth = 0 }: { story: StoryWithChildren; dept
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+            className="overflow-hidden ml-4 mt-1 pl-3 border-l border-[var(--border)]"
           >
             {story.problems.map(p => (
               <ProblemCard key={p.id} problem={p} />
             ))}
             {story.children.map(child => (
-              <StoryCard key={child.id} story={child} depth={depth + 1} />
+              <StoryCard key={child.id} story={child} depth={0} />
             ))}
           </motion.div>
         )}
