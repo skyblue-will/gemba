@@ -6,11 +6,24 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Skip auth for same-origin requests (browser UI)
+  const origin = request.headers.get('origin')
+  const host = request.headers.get('host')
+  if (origin && host && origin.includes(host)) {
+    return NextResponse.next()
+  }
+
+  // Also skip if referer is from the same host (navigation requests)
+  const referer = request.headers.get('referer')
+  if (referer && host && referer.includes(host)) {
+    return NextResponse.next()
+  }
+
+  // External requests need API key
   const apiKey = request.headers.get('x-api-key')
   const expected = process.env.GEMBA_API_KEY
 
   if (!expected) {
-    // No key configured, skip auth (dev mode)
     return NextResponse.next()
   }
 
