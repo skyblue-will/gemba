@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { after } from 'next/server'
 import { listJournalEntries, createJournalEntry } from '@/lib/queries'
-import { extractFromEntries } from '@/lib/extract'
-import { getMapState } from '@/lib/queries'
 
 export async function GET(request: NextRequest) {
   const unprocessed = request.nextUrl.searchParams.get('unprocessed') === 'true'
@@ -22,16 +19,6 @@ export async function POST(request: NextRequest) {
   }
 
   const entry = await createJournalEntry(body.trim())
-
-  // Background extraction after response is sent
-  after(async () => {
-    try {
-      const state = await getMapState()
-      await extractFromEntries(state, [entry])
-    } catch (err) {
-      console.error('Background extraction failed:', err)
-    }
-  })
 
   return NextResponse.json(entry, { status: 201 })
 }
