@@ -52,9 +52,14 @@ export function StoryCard({ story, depth = 0, onStateChange, onReply }: StoryCar
   function handleCardClick() {
     if (hasChildren) {
       setExpanded(!expanded)
-    } else {
+    }
+    // Always toggle reply input
+    if (!replying) {
       setReplying(true)
       setTimeout(() => inputRef.current?.focus(), 100)
+    } else if (!hasChildren) {
+      // Only close reply on re-click if no children (otherwise expand/collapse handles the click)
+      setReplying(false)
     }
   }
 
@@ -87,7 +92,7 @@ export function StoryCard({ story, depth = 0, onStateChange, onReply }: StoryCar
     >
       <div
         onClick={handleCardClick}
-        className={`w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors cursor-pointer ${
+        className={`group w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors cursor-pointer ${
           isActive ? 'bg-[var(--accent)]08' : 'bg-[var(--bg-elevated)]80'
         } border border-[var(--border)] hover:border-[var(--text-muted)]`}
         role="button"
