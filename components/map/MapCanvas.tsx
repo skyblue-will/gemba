@@ -72,7 +72,7 @@ export function MapCanvas({ state, loading, unprocessedCount, onReply }: MapCanv
         background: 'radial-gradient(circle at 30% 40%, #7c6ff008 0%, transparent 50%), radial-gradient(circle at 70% 60%, #f07c6f06 0%, transparent 50%), var(--bg-base)',
       }}
     >
-      <AgentStatus extracting={extracting} lastSync={lastSync} />
+      <AgentStatus unprocessedCount={unprocessedCount} />
 
       {rolesWithPositions.map(role => (
         <RoleContainer
