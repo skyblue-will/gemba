@@ -9,9 +9,10 @@ interface JournalPanelProps {
   onEntryCreated: () => void
   mapState: MapState | null
   onScrollToStory?: (storyId: string) => void
+  refreshKey?: number
 }
 
-export function JournalPanel({ onEntryCreated, mapState, onScrollToStory }: JournalPanelProps) {
+export function JournalPanel({ onEntryCreated, mapState, onScrollToStory, refreshKey }: JournalPanelProps) {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [submitting, setSubmitting] = useState(false)
   const feedRef = useRef<HTMLDivElement>(null)
@@ -28,7 +29,7 @@ export function JournalPanel({ onEntryCreated, mapState, onScrollToStory }: Jour
 
   useEffect(() => {
     fetchEntries()
-  }, [])
+  }, [refreshKey])
 
   async function handleSubmit(body: string) {
     setSubmitting(true)

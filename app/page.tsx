@@ -9,6 +9,7 @@ import { useSmartPoll } from '@/lib/poll'
 export default function Home() {
   const { state, loading, fetchState } = useSmartPoll()
   const [unprocessedCount, setUnprocessedCount] = useState(0)
+  const [journalRefreshKey, setJournalRefreshKey] = useState(0)
 
   async function fetchUnprocessedCount() {
     try {
@@ -51,6 +52,7 @@ export default function Home() {
         body: JSON.stringify({ body, storyId }),
       })
       setUnprocessedCount(prev => prev + 1)
+      setJournalRefreshKey(prev => prev + 1)
     } catch {}
   }, [])
 
@@ -58,7 +60,7 @@ export default function Home() {
     <div className="h-screen flex flex-col bg-[var(--bg-base)] text-[var(--text-secondary)]">
       <TopBar onRefresh={handleRefresh} />
       <div className="flex flex-1 overflow-hidden max-md:flex-col">
-        <JournalPanel onEntryCreated={handleEntryCreated} mapState={state} onScrollToStory={handleScrollToStory} />
+        <JournalPanel onEntryCreated={handleEntryCreated} mapState={state} onScrollToStory={handleScrollToStory} refreshKey={journalRefreshKey} />
         <MapCanvas
           state={state}
           loading={loading}
