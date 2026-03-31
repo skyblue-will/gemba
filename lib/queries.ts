@@ -24,6 +24,11 @@ export async function updateJournalEntry(id: string, updates: { processed?: bool
   return entry
 }
 
+export async function deleteJournalEntry(id: string) {
+  const [entry] = await db.delete(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.processed, false))).returning()
+  return entry
+}
+
 // ── Roles ──
 
 export async function createRole(data: { name: string; icon?: string; vision?: string; position?: { x: number; y: number } }) {

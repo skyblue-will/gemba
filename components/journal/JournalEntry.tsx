@@ -16,14 +16,20 @@ function timeAgo(date: Date | null): string {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function JournalEntryCard({ entry }: { entry: JournalEntryType }) {
+interface JournalEntryCardProps {
+  entry: JournalEntryType
+  onDelete?: (id: string) => void
+}
+
+export function JournalEntryCard({ entry, onDelete }: JournalEntryCardProps) {
   const isRecent = entry.createdAt
     ? new Date().getTime() - new Date(entry.createdAt).getTime() < 3600000
     : false
+  const canDelete = !entry.processed
 
   return (
     <div
-      className={`p-3 mb-2 rounded-lg bg-[var(--bg-elevated)] border-l-[3px] text-sm leading-relaxed transition-opacity ${
+      className={`group p-3 mb-2 rounded-lg bg-[var(--bg-elevated)] border-l-[3px] text-sm leading-relaxed transition-opacity ${
         isRecent ? 'border-l-[var(--accent)]' : 'border-l-transparent opacity-60'
       }`}
     >
@@ -36,6 +42,16 @@ export function JournalEntryCard({ entry }: { entry: JournalEntryType }) {
         )}
         {entry.processed === false && (
           <span className="text-[10px] text-[var(--state-messy)]" title="Not yet mapped">○</span>
+        )}
+        {canDelete && onDelete && (
+          <button
+            onClick={() => onDelete(entry.id)}
+            className="ml-auto text-[10px] text-[var(--text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--state-burning)] transition-all"
+            title="Remove entry"
+            aria-label="Remove journal entry"
+          >
+            ✕
+          </button>
         )}
       </div>
       <p className="text-[var(--text-secondary)]">{entry.body}</p>

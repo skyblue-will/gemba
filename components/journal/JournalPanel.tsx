@@ -61,6 +61,13 @@ export function JournalPanel({ onEntryCreated }: JournalPanelProps) {
     setSubmitting(false)
   }
 
+  async function handleDelete(id: string) {
+    setEntries(prev => prev.filter(e => e.id !== id))
+    try {
+      await fetch(`/api/journal/${id}`, { method: 'DELETE' })
+    } catch {}
+  }
+
   // Refresh entries periodically to pick up processed status
   useEffect(() => {
     const interval = setInterval(fetchEntries, 10000)
@@ -80,7 +87,7 @@ export function JournalPanel({ onEntryCreated }: JournalPanelProps) {
           </div>
         )}
         {entries.map(entry => (
-          <JournalEntryCard key={entry.id} entry={entry} />
+          <JournalEntryCard key={entry.id} entry={entry} onDelete={handleDelete} />
         ))}
       </div>
 
