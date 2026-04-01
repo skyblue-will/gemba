@@ -12,6 +12,7 @@ const ActionSchema = z.object({
       label: z.string(),
       icon: z.string(),
       vision: z.string(),
+      description: z.string().optional().describe('Longer description of what this role encompasses and what it does NOT include'),
     }),
     z.object({
       type: z.literal('create_node'),
@@ -30,6 +31,14 @@ const ActionSchema = z.object({
         state: z.enum(['burning', 'messy', 'stuck', 'progressing', 'clear']).optional(),
         body: z.string().optional(),
         label: z.string().optional(),
+      }),
+    }),
+    z.object({
+      type: z.literal('update_role'),
+      nodeId: z.string(),
+      updates: z.object({
+        vision: z.string().optional(),
+        description: z.string().optional().describe('Evolving description of what this role encompasses and excludes — refine as you learn more from entries'),
       }),
     }),
   ])),
@@ -54,6 +63,7 @@ function buildSystemPrompt(allNodes: any[], allEdges: any[]): string {
     let line = `${indent}- [${n.id}] (${n.type}) "${n.label}"`
     if (n.state) line += ` [${n.state}]`
     if (n.vision) line += ` — vision: ${n.vision}`
+    if (n.type === 'role' && n.body) line += `\n${indent}  description: ${n.body}`
 
     // Show cross-references
     const nodeEdges = allEdges.filter((e: any) => e.sourceId === n.id)
@@ -112,6 +122,10 @@ RULES:
 
 11. Be conservative. When unsure, update an existing node rather than creating a new one.
 
+12. VISION MATCH: Before placing a node under a role, check the role's vision AND description. The node must plausibly advance, relate to, or reflect that role's purpose. A football trip does not build a professional brand. A pub night alone is not fathering. If no existing role's vision fits, create a new role — don't force-fit into the nearest-sounding role.
+
+13. REFINE ROLE DESCRIPTIONS: As you process entries, use update_role to enrich role descriptions. Each entry teaches you more about what a role encompasses. Build up the description field over time so future extractions classify better. Include what the role IS and what it is NOT when the distinction matters.
+
 For create_node, use parentRoleName matching an existing role name. If the role doesn't exist, also emit a create_role action for it BEFORE the create_node.
 For update_node, use the exact nodeId from the current state above.
 For create_node with parentNodeId, use the exact ID of the parent node from the current state.`
@@ -164,6 +178,7 @@ export async function extractFromEntries(
             label: action.label,
             icon: action.icon,
             vision: action.vision,
+            body: action.description,
           })
           roleNameToId.set(action.label.toLowerCase(), role.id)
           break
@@ -200,6 +215,14 @@ export async function extractFromEntries(
         case 'update_node': {
           await updateNode(action.nodeId, {
             ...action.updates,
+            lastMentioned: new Date(),
+          })
+          break
+        }
+        case 'update_role': {
+          await updateNode(action.nodeId, {
+            ...(action.updates.vision && { vision: action.updates.vision }),
+            ...(action.updates.description && { body: action.updates.description }),
             lastMentioned: new Date(),
           })
           break
