@@ -28,7 +28,7 @@ export function JournalEntryCard({ entry, storyLabel, onDelete, onScrollToStory 
     ? new Date().getTime() - new Date(entry.createdAt).getTime() < 3600000
     : false
   const canDelete = !entry.processed
-  const isReply = !!entry.storyId
+  const isReply = !!entry.nodeId
 
   return (
     <div
@@ -46,7 +46,7 @@ export function JournalEntryCard({ entry, storyLabel, onDelete, onScrollToStory 
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onScrollToStory?.(entry.storyId!)
+              onScrollToStory?.(entry.nodeId!)
             }}
             className="text-[10px] text-[var(--accent)] truncate max-w-[160px] hover:underline cursor-pointer"
             title={`Jump to: ${storyLabel}`}

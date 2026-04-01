@@ -38,7 +38,7 @@ export function JournalPanel({ onEntryCreated, mapState, onScrollToStory, refres
     const optimistic: JournalEntry = {
       id: 'temp-' + Date.now(),
       body,
-      storyId: null,
+      nodeId: null,
       processed: false,
       createdAt: new Date(),
     }
@@ -106,7 +106,7 @@ export function JournalPanel({ onEntryCreated, mapState, onScrollToStory, refres
           <JournalEntryCard
             key={entry.id}
             entry={entry}
-            storyLabel={entry.storyId ? storyLabelMap.get(entry.storyId) : undefined}
+            storyLabel={entry.nodeId ? storyLabelMap.get(entry.nodeId) : undefined}
             onDelete={handleDelete}
             onScrollToStory={onScrollToStory}
           />

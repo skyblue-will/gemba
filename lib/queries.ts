@@ -53,7 +53,7 @@ export async function createNode(data: {
   position?: { x: number; y: number } | null
   metadata?: Record<string, unknown> | null
 }) {
-  const [node] = await db.insert(nodes).values(data).returning()
+  const [node] = await db.insert(nodes).values(data as any).returning()
   return node
 }
 
@@ -67,7 +67,7 @@ export async function updateNode(id: string, updates: Partial<{
   metadata: Record<string, unknown>
   lastMentioned: Date
 }>) {
-  const [node] = await db.update(nodes).set({ ...updates, updatedAt: new Date() }).where(eq(nodes.id, id)).returning()
+  const [node] = await db.update(nodes).set({ ...updates, updatedAt: new Date() } as any).where(eq(nodes.id, id)).returning()
   return node
 }
 
