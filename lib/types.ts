@@ -1,4 +1,46 @@
-export type StoryState = 'burning' | 'messy' | 'stuck' | 'progressing' | 'clear' | 'dormant'
+export type NodeType = 'role' | 'story' | 'project' | 'task' | 'problem'
+export type NodeState = 'burning' | 'messy' | 'stuck' | 'progressing' | 'clear' | 'dormant'
+
+export interface GembaNode {
+  id: string
+  parentId: string | null
+  type: NodeType
+  label: string
+  body: string | null
+  icon: string | null
+  state: NodeState | null
+  vision: string | null
+  position: { x: number; y: number } | null
+  metadata: Record<string, unknown> | null
+  lastMentioned: Date | null
+  createdAt: Date | null
+  updatedAt: Date | null
+}
+
+export interface GembaNodeWithChildren extends GembaNode {
+  children: GembaNodeWithChildren[]
+  edges: Edge[]
+}
+
+export interface Edge {
+  id: string
+  sourceId: string
+  targetId: string
+  type: string
+  createdAt: Date | null
+}
+
+export interface JournalEntry {
+  id: string
+  body: string
+  nodeId: string | null
+  processed: boolean | null
+  createdAt: Date | null
+}
+
+// ── Legacy types (for backward-compat /api/state) ──
+
+export type StoryState = NodeState
 
 export interface Role {
   id: string
@@ -35,20 +77,7 @@ export interface Problem {
   createdAt: Date | null
 }
 
-export interface JournalEntry {
-  id: string
-  body: string
-  storyId: string | null
-  processed: boolean | null
-  createdAt: Date | null
-}
-
 export interface MapState {
   roles: Role[]
   etag: string
-}
-
-export interface ExtractionAction {
-  type: 'create_role' | 'create_story' | 'update_story' | 'create_problem' | 'mark_processed'
-  [key: string]: unknown
 }

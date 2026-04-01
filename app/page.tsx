@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { TopBar } from '@/components/ui/TopBar'
 import { JournalPanel } from '@/components/journal/JournalPanel'
 import { MapCanvas } from '@/components/map/MapCanvas'
-import { useSmartPoll } from '@/lib/poll'
 
 export default function Home() {
-  const { state, loading, fetchState } = useSmartPoll()
   const [unprocessedCount, setUnprocessedCount] = useState(0)
   const [journalRefreshKey, setJournalRefreshKey] = useState(0)
+  // mapState is still fetched for the journal panel's story label map
+  const [mapState, setMapState] = useState<any>(null)
 
   async function fetchUnprocessedCount() {
     try {
@@ -21,22 +21,34 @@ export default function Home() {
     } catch {}
   }
 
+  async function fetchMapState() {
+    try {
+      const res = await fetch('/api/state')
+      if (res.ok) {
+        const data = await res.json()
+        setMapState(data)
+      }
+    } catch {}
+  }
+
   useEffect(() => {
-    fetchState()
     fetchUnprocessedCount()
-  }, [fetchState])
+    fetchMapState()
+  }, [])
 
   const handleRefresh = useCallback(() => {
-    fetchState()
     fetchUnprocessedCount()
-  }, [fetchState])
+    fetchMapState()
+    // Trigger canvas refresh via window
+    ;(window as any).__gembaRefresh?.()
+  }, [])
 
   const handleEntryCreated = useCallback(() => {
     setUnprocessedCount(prev => prev + 1)
   }, [])
 
-  const handleScrollToStory = useCallback((storyId: string) => {
-    const el = document.querySelector(`[data-story-id="${storyId}"]`)
+  const handleScrollToNode = useCallback((nodeId: string) => {
+    const el = document.querySelector(`[data-node-id="${nodeId}"]`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       el.classList.add('ring-2', 'ring-[var(--accent)]', 'rounded-lg')
@@ -44,12 +56,12 @@ export default function Home() {
     }
   }, [])
 
-  const handleReply = useCallback(async (storyId: string, body: string) => {
+  const handleReply = useCallback(async (nodeId: string, body: string) => {
     try {
       await fetch('/api/journal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, storyId }),
+        body: JSON.stringify({ body, nodeId }),
       })
       setUnprocessedCount(prev => prev + 1)
       setJournalRefreshKey(prev => prev + 1)
@@ -60,10 +72,13 @@ export default function Home() {
     <div className="h-screen flex flex-col bg-[var(--bg-base)] text-[var(--text-secondary)]">
       <TopBar onRefresh={handleRefresh} />
       <div className="flex flex-1 overflow-hidden max-md:flex-col">
-        <JournalPanel onEntryCreated={handleEntryCreated} mapState={state} onScrollToStory={handleScrollToStory} refreshKey={journalRefreshKey} />
+        <JournalPanel
+          onEntryCreated={handleEntryCreated}
+          mapState={mapState}
+          onScrollToStory={handleScrollToNode}
+          refreshKey={journalRefreshKey}
+        />
         <MapCanvas
-          state={state}
-          loading={loading}
           unprocessedCount={unprocessedCount}
           onReply={handleReply}
         />

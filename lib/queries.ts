@@ -1,8 +1,7 @@
 import { db } from './db'
-import { roles, stories, storyRoles, problems, journalEntries } from './schema'
-import { eq, and, sql } from 'drizzle-orm'
-import { neon } from '@neondatabase/serverless'
-import type { MapState, StoryWithChildren, Role } from './types'
+import { nodes, edges, journalEntries, roles, stories, storyRoles, problems } from './schema'
+import { eq, and, isNull } from 'drizzle-orm'
+import type { MapState, StoryWithChildren, Role, GembaNode, GembaNodeWithChildren, Edge } from './types'
 import crypto from 'crypto'
 
 // ── Journal ──
@@ -14,8 +13,8 @@ export async function listJournalEntries(unprocessedOnly = false) {
   return db.select().from(journalEntries).orderBy(journalEntries.createdAt)
 }
 
-export async function createJournalEntry(body: string, storyId?: string) {
-  const [entry] = await db.insert(journalEntries).values({ body, storyId: storyId || null }).returning()
+export async function createJournalEntry(body: string, nodeId?: string) {
+  const [entry] = await db.insert(journalEntries).values({ body, nodeId: nodeId || null }).returning()
   return entry
 }
 
@@ -29,136 +28,191 @@ export async function deleteJournalEntry(id: string) {
   return entry
 }
 
-// ── Roles ──
+// ── Nodes ──
 
-export async function createRole(data: { name: string; icon?: string; vision?: string; position?: { x: number; y: number } }) {
-  const [role] = await db.insert(roles).values(data).returning()
-  return role
+export async function listNodes(parentId?: string | null) {
+  if (parentId === undefined || parentId === null) {
+    return db.select().from(nodes).where(isNull(nodes.parentId)).orderBy(nodes.createdAt)
+  }
+  return db.select().from(nodes).where(eq(nodes.parentId, parentId)).orderBy(nodes.createdAt)
 }
 
-export async function updateRole(id: string, updates: Partial<{ name: string; icon: string; vision: string; position: { x: number; y: number } }>) {
-  const [role] = await db.update(roles).set(updates).where(eq(roles.id, id)).returning()
-  return role
+export async function getNode(id: string) {
+  const [node] = await db.select().from(nodes).where(eq(nodes.id, id))
+  return node || null
 }
 
-// ── Stories ──
+export async function createNode(data: {
+  parentId?: string | null
+  type: string
+  label: string
+  body?: string | null
+  icon?: string | null
+  state?: string | null
+  vision?: string | null
+  position?: { x: number; y: number } | null
+  metadata?: Record<string, unknown> | null
+}) {
+  const [node] = await db.insert(nodes).values(data).returning()
+  return node
+}
 
-import type { StoryState } from './types'
+export async function updateNode(id: string, updates: Partial<{
+  label: string
+  body: string
+  icon: string
+  state: string
+  vision: string
+  position: { x: number; y: number }
+  metadata: Record<string, unknown>
+  lastMentioned: Date
+}>) {
+  const [node] = await db.update(nodes).set({ ...updates, updatedAt: new Date() }).where(eq(nodes.id, id)).returning()
+  return node
+}
 
-export async function createStory(data: { label: string; narrative?: string; state?: StoryState; parentId?: string; roleIds?: string[] }) {
-  const { roleIds, ...storyData } = data
-  const [story] = await db.insert(stories).values(storyData).returning()
+export async function deleteNode(id: string) {
+  const [node] = await db.delete(nodes).where(eq(nodes.id, id)).returning()
+  return node
+}
 
-  if (roleIds && roleIds.length > 0) {
-    await db.insert(storyRoles).values(
-      roleIds.map(roleId => ({ storyId: story.id, roleId }))
-    )
+// ── Edges ──
+
+export async function listEdges(nodeId: string) {
+  const allEdges = await db.select().from(edges)
+  return allEdges.filter(e => e.sourceId === nodeId || e.targetId === nodeId)
+}
+
+export async function createEdge(data: { sourceId: string; targetId: string; type: string }) {
+  const [edge] = await db.insert(edges).values(data).returning()
+  return edge
+}
+
+export async function deleteEdge(id: string) {
+  const [edge] = await db.delete(edges).where(eq(edges.id, id)).returning()
+  return edge
+}
+
+// ── Node Tree (for zoom views) ──
+
+export async function getNodeWithChildren(id: string): Promise<GembaNodeWithChildren | null> {
+  const node = await getNode(id)
+  if (!node) return null
+
+  const children = await listNodes(id)
+  const nodeEdges = await listEdges(id)
+
+  const childrenWithChildren: GembaNodeWithChildren[] = children.map(c => ({
+    ...c,
+    children: [],
+    edges: [],
+  }))
+
+  return {
+    ...node,
+    children: childrenWithChildren,
+    edges: nodeEdges,
+  }
+}
+
+export async function getDescendants(id: string): Promise<GembaNodeWithChildren> {
+  const allNodes = await db.select().from(nodes)
+  const allEdges = await db.select().from(edges)
+
+  const nodeMap = new Map<string, GembaNodeWithChildren>()
+  for (const n of allNodes) {
+    nodeMap.set(n.id, { ...n, children: [], edges: [] })
   }
 
-  return story
-}
-
-export async function updateStory(id: string, updates: Partial<{ label: string; narrative: string; state: StoryState; parentId: string; lastMentioned: Date }>) {
-  const [story] = await db.update(stories).set({ ...updates, updatedAt: new Date() }).where(eq(stories.id, id)).returning()
-  return story
-}
-
-export async function updateStoryRoles(storyId: string, roleIds: string[]) {
-  await db.delete(storyRoles).where(eq(storyRoles.storyId, storyId))
-  if (roleIds.length > 0) {
-    await db.insert(storyRoles).values(
-      roleIds.map(roleId => ({ storyId, roleId }))
-    )
+  // Attach edges to their source nodes
+  for (const e of allEdges) {
+    nodeMap.get(e.sourceId)?.edges.push(e)
   }
-}
 
-// ── Problems ──
+  // Build tree
+  for (const n of nodeMap.values()) {
+    if (n.parentId && nodeMap.has(n.parentId)) {
+      nodeMap.get(n.parentId)!.children.push(n)
+    }
+  }
 
-export async function createProblem(data: { storyId?: string; description: string; emergedFrom?: string }) {
-  const [problem] = await db.insert(problems).values(data).returning()
-  return problem
+  return nodeMap.get(id) || { id, parentId: null, type: 'role' as const, label: 'Not found', body: null, icon: null, state: null, vision: null, position: null, metadata: null, lastMentioned: null, createdAt: null, updatedAt: null, children: [], edges: [] }
 }
 
 // ── Reset ──
 
 export async function resetMap() {
-  // Delete in dependency order: problems → storyRoles → stories → roles
-  // Then mark all journal entries as unprocessed and clear their story links
-  await db.delete(problems)
-  await db.delete(storyRoles)
-  await db.delete(stories)
-  await db.delete(roles)
-  await db.update(journalEntries).set({ processed: false, storyId: null })
+  await db.delete(edges)
+  await db.delete(nodes)
+  await db.update(journalEntries).set({ processed: false, nodeId: null })
 }
 
-// ── Map State (recursive tree) ──
+// ── Legacy: Map State (backward-compat for skills) ──
 
 export async function getMapState(): Promise<MapState> {
-  const rawSql = neon(process.env.DATABASE_URL!)
+  const allNodes = await db.select().from(nodes)
+  const allEdges = await db.select().from(edges)
 
-  // Fetch all data in parallel
-  const [allRoles, allStories, allStoryRoles, allProblems] = await Promise.all([
-    db.select().from(roles),
-    db.select().from(stories),
-    db.select().from(storyRoles),
-    db.select().from(problems),
-  ])
-
-  // Build role-to-stories mapping
-  const storyRoleMap = new Map<string, string[]>()
-  for (const sr of allStoryRoles) {
-    if (!storyRoleMap.has(sr.storyId)) storyRoleMap.set(sr.storyId, [])
-    storyRoleMap.get(sr.storyId)!.push(sr.roleId)
+  // Build node tree
+  const nodeMap = new Map<string, GembaNodeWithChildren>()
+  for (const n of allNodes) {
+    nodeMap.set(n.id, { ...n, children: [], edges: [] })
   }
 
-  // Build problems-by-story mapping
-  const problemsByStory = new Map<string, typeof allProblems>()
-  for (const p of allProblems) {
-    if (!p.storyId) continue
-    if (!problemsByStory.has(p.storyId)) problemsByStory.set(p.storyId, [])
-    problemsByStory.get(p.storyId)!.push(p)
+  for (const e of allEdges) {
+    nodeMap.get(e.sourceId)?.edges.push(e)
   }
 
-  // Build story tree
-  const storyMap = new Map<string, StoryWithChildren>()
-  for (const s of allStories) {
-    storyMap.set(s.id, {
-      ...s,
-      roleIds: storyRoleMap.get(s.id) || [],
-      children: [],
-      problems: (problemsByStory.get(s.id) || []).map(p => ({
-        id: p.id,
-        storyId: p.storyId,
-        description: p.description,
-        emergedFrom: p.emergedFrom,
-        createdAt: p.createdAt,
-      })),
-    })
-  }
-
-  // Nest children under parents
-  const topLevelStories: StoryWithChildren[] = []
-  for (const s of storyMap.values()) {
-    if (s.parentId && storyMap.has(s.parentId)) {
-      storyMap.get(s.parentId)!.children.push(s)
-    } else {
-      topLevelStories.push(s)
+  // Nest children
+  const topLevel: GembaNodeWithChildren[] = []
+  for (const n of nodeMap.values()) {
+    if (n.parentId && nodeMap.has(n.parentId)) {
+      nodeMap.get(n.parentId)!.children.push(n)
+    } else if (!n.parentId) {
+      topLevel.push(n)
     }
   }
 
-  // Assemble roles with their stories
-  const result: Role[] = allRoles.map(r => ({
+  // Reshape into legacy format: roles with stories
+  const roleNodes = topLevel.filter(n => n.type === 'role')
+
+  function toStory(n: GembaNodeWithChildren): StoryWithChildren {
+    // Find role edges for this node
+    const roleIds = n.edges
+      .filter(e => e.type === 'belongs_to')
+      .map(e => e.targetId)
+
+    return {
+      id: n.id,
+      parentId: n.parentId,
+      label: n.label,
+      narrative: n.body,
+      state: n.state || 'messy',
+      lastMentioned: n.lastMentioned,
+      createdAt: n.createdAt,
+      updatedAt: n.updatedAt,
+      roleIds,
+      children: n.children.filter(c => c.type !== 'problem').map(toStory),
+      problems: n.children.filter(c => c.type === 'problem').map(p => ({
+        id: p.id,
+        storyId: p.parentId,
+        description: p.body || p.label,
+        emergedFrom: null,
+        createdAt: p.createdAt,
+      })),
+    }
+  }
+
+  const result: Role[] = roleNodes.map(r => ({
     id: r.id,
-    name: r.name,
+    name: r.label,
     icon: r.icon,
     vision: r.vision,
-    position: r.position as { x: number; y: number } | null,
+    position: r.position,
     createdAt: r.createdAt,
-    stories: topLevelStories.filter(s => s.roleIds.includes(r.id)),
+    stories: r.children.filter(c => c.type !== 'problem').map(toStory),
   }))
 
-  // Generate ETag for change detection
   const hash = crypto.createHash('md5').update(JSON.stringify(result)).digest('hex')
-
   return { roles: result, etag: hash }
 }

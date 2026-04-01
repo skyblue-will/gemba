@@ -1,116 +1,141 @@
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
-import { createRole, createStory, updateStory, createProblem, updateJournalEntry } from './queries'
-import type { MapState, JournalEntry } from './types'
+import { createNode, createEdge, updateNode, updateJournalEntry, listNodes, listEdges } from './queries'
+import type { MapState, GembaNodeWithChildren } from './types'
+import { db } from './db'
+import { nodes, edges } from './schema'
 
 const ActionSchema = z.object({
   actions: z.array(z.discriminatedUnion('type', [
     z.object({
       type: z.literal('create_role'),
-      name: z.string(),
+      label: z.string(),
       icon: z.string(),
       vision: z.string(),
     }),
     z.object({
-      type: z.literal('create_story'),
+      type: z.literal('create_node'),
+      nodeType: z.enum(['story', 'project', 'task', 'problem']),
       label: z.string(),
-      narrative: z.string(),
-      state: z.enum(['burning', 'messy', 'stuck', 'progressing', 'clear']),
-      roleNames: z.array(z.string()),
+      body: z.string(),
+      state: z.enum(['burning', 'messy', 'stuck', 'progressing', 'clear']).optional(),
+      parentRoleName: z.string().describe('The role this node lives under in the zoom hierarchy'),
+      additionalRoleNames: z.array(z.string()).optional().describe('Other roles this node relates to (creates belongs_to edges)'),
+      parentNodeId: z.string().optional().describe('If this is a child of an existing non-role node, its ID'),
     }),
     z.object({
-      type: z.literal('update_story'),
-      storyId: z.string(),
+      type: z.literal('update_node'),
+      nodeId: z.string(),
       updates: z.object({
         state: z.enum(['burning', 'messy', 'stuck', 'progressing', 'clear']).optional(),
-        narrative: z.string().optional(),
+        body: z.string().optional(),
         label: z.string().optional(),
       }),
-    }),
-    z.object({
-      type: z.literal('create_substory'),
-      parentStoryId: z.string(),
-      label: z.string(),
-      narrative: z.string(),
-      state: z.enum(['burning', 'messy', 'stuck', 'progressing', 'clear']),
-    }),
-    z.object({
-      type: z.literal('create_problem'),
-      storyLabel: z.string(),
-      description: z.string(),
-      emergedFrom: z.string(),
     }),
   ])),
 })
 
-function buildSystemPrompt(state: MapState): string {
-  function describeStory(s: any, indent: string): string {
-    let line = `${indent}- [${s.id}] "${s.label}" (state: ${s.state})`
-    if (s.children && s.children.length > 0) {
-      line += '\n' + s.children.map((c: any) => describeStory(c, indent + '  ')).join('\n')
+function buildSystemPrompt(allNodes: any[], allEdges: any[]): string {
+  // Build a tree description from nodes
+  const nodeMap = new Map<string, any>()
+  for (const n of allNodes) {
+    nodeMap.set(n.id, { ...n, children: [] })
+  }
+  for (const n of nodeMap.values()) {
+    if (n.parentId && nodeMap.has(n.parentId)) {
+      nodeMap.get(n.parentId).children.push(n)
+    }
+  }
+
+  const topLevel = allNodes.filter(n => !n.parentId)
+
+  function describeNode(n: any, indent: string): string {
+    const node = nodeMap.get(n.id) || n
+    let line = `${indent}- [${n.id}] (${n.type}) "${n.label}"`
+    if (n.state) line += ` [${n.state}]`
+    if (n.vision) line += ` — vision: ${n.vision}`
+
+    // Show cross-references
+    const nodeEdges = allEdges.filter((e: any) => e.sourceId === n.id)
+    for (const e of nodeEdges) {
+      const target = nodeMap.get(e.targetId)
+      if (target) line += `\n${indent}  ↔ ${e.type} → "${target.label}"`
+    }
+
+    if (node.children && node.children.length > 0) {
+      line += '\n' + node.children.map((c: any) => describeNode(c, indent + '  ')).join('\n')
     }
     return line
   }
 
-  const rolesDesc = state.roles.map(r => {
-    const storiesDesc = r.stories.map(s => describeStory(s, '  ')).join('\n')
-    return `Role: "${r.name}" (vision: ${r.vision || 'not set'})\n${storiesDesc || '  (no stories yet)'}`
-  }).join('\n\n')
+  const stateDesc = topLevel.length > 0
+    ? topLevel.map(n => describeNode(n, '  ')).join('\n\n')
+    : '(empty - no nodes yet)'
 
-  return `You are the extraction engine for Gemba, a life OS. Your job is to analyze journal entries and map them to a structured ontology of Roles, Stories, and Problems.
+  return `You are the extraction engine for Gemba, a life OS. Your job is to analyze journal entries and map them to a structured ontology of nodes and relationships.
 
 CURRENT STATE:
-${rolesDesc || '(empty - no roles or stories yet)'}
+${stateDesc}
+
+NODE TYPES:
+- role: An identity you step into. "Father", "AI Lead at Alertacall", "Brand Builder". NOT abstract domains like "Work" or "Personal".
+- story: A moment, event, or narrative arc. "Got a 3.5% pay rise", "Night at the Black Horse". Transient.
+- project: A persistent thing being built or worked on. Has a name, a deliverable, persists across entries. "Gemba", "Holly's bike", "AI incentive framework". NOT a moment.
+- task: A single actionable step with a clear done state. "Take bike to Russell's on Saturday", "Draft the incentive proposal".
+- problem: A gap between reality and a role's vision. Emerges from stories/projects.
 
 RULES:
-1. MATCH before CREATE. Before creating a new story, check if an existing story matches by semantic similarity. "Sarah conflict" and "Roadmap pushback from Sarah" are the same story. Use the existing story's ID for update_story.
+1. MATCH before CREATE. Before creating a new node, check if an existing node matches by semantic similarity. Use update_node for existing nodes.
 
-2. Roles are ACTUAL ROLES — the hat you wear, the identity you step into. Name them as roles a person holds, not abstract life domains. Good examples: "Father", "AI Lead at Alertacall", "Brand Builder", "Friend", "Husband". Bad examples: "Work", "Career", "Personal", "Family". "Work" is not a role — "Senior Developer at Acme" is. "Personal" is not a role — "Friend" or "Adventurer" is. Match to the closest existing role by intent. Only create a new role if no existing role covers this identity.
+2. Roles are ACTUAL ROLES — the hat you wear, the identity you step into. Good: "Father", "AI Lead at Alertacall", "Brand Builder". Bad: "Work", "Career", "Personal".
 
-3. Infer state from emotional tone:
-   - "on fire," "urgent," "crisis" -> burning
-   - "confused," "tangled," "messy" -> messy
-   - "blocked," "stuck," "waiting on" -> stuck
-   - "making progress," "shipped," "working" -> progressing
-   - "done," "resolved," "under control" -> clear
+3. PROJECT vs STORY heuristic: If it has a name, a deliverable, and will persist across multiple entries → project. If it's a narrative arc, a feeling, or a moment → story. "Holly's bike" = project. "Got a pay rise" = story. "Building Gemba" = project.
 
-4. Life moments ARE stories. If someone writes about watching their kid perform, having dinner with friends, or a nice walk — that IS a story in a role. "Watching Holly's Taylor Swift show" is a story in a "Father" role with state "progressing" (life is going well here). Only skip truly contentless entries like "meh" or "..." with no discernible event or feeling. Err on the side of creating stories. The map should reflect ALL of life, not just problems.
+4. TASK heuristic: A single actionable step with a clear done state. "Take bike to Russell's" = task. "Get Holly riding" = project (too big for one step).
 
-5. Problems emerge from gaps between story reality and role vision. Example: Role vision = "Ship products that matter." Story = "Can't hire." Problem = "Engineering capacity gap blocking shipping."
+5. Infer state from emotional tone:
+   - "on fire," "urgent," "crisis" → burning
+   - "confused," "tangled," "messy" → messy
+   - "blocked," "stuck," "waiting on" → stuck
+   - "making progress," "shipped," "working" → progressing
+   - "done," "resolved," "under control" → clear
 
-6. One entry can affect multiple stories across different roles.
+6. Life moments ARE stories. Watching your kid perform, having dinner, a nice walk — these are stories. The map reflects ALL of life, not just problems.
 
-7. SUB-STORIES for goals and projects. When a story has a clear goal or deadline (like "Get Holly riding her bike by Easter"), future journal entries about steps toward that goal should become sub-stories (create_substory with parentStoryId), not new top-level stories. Examples: "Russell fixed the bike" is a sub-story of "Get Holly riding her bike." "Holly tried riding but the seat was too high" is another sub-story. The parent story's state updates based on overall progress. Sub-stories let the user drill down into the steps of a larger story.
+7. Problems emerge from gaps between reality and role vision. Example: Role vision = "Ship products that matter." Story = "Can't hire." Problem = "Engineering capacity gap blocking shipping."
 
-8. Be conservative. When unsure, update an existing story rather than creating a new one. When very unsure, do nothing.
+8. NESTING: Nodes live inside their parent role (parentRoleName). Projects and stories are children of roles. Tasks are children of projects. Sub-stories are children of stories. Problems are children of the story/project they emerged from.
 
-For create_story, use roleNames that match existing role names. If no role fits, include a new role name and also emit a create_role action for it.
-For update_story, use the exact storyId from the current state above.
-For create_substory, use the exact parentStoryId from the current state above. The sub-story inherits the parent's role.
-For create_problem, use the storyLabel of the story the problem belongs to.`
+9. CROSS-REFERENCES: If a project relates to multiple roles, set parentRoleName to its primary home and list the others in additionalRoleNames. This creates belongs_to edges.
+
+10. Be conservative. When unsure, update an existing node rather than creating a new one.
+
+For create_node, use parentRoleName matching an existing role name. If the role doesn't exist, also emit a create_role action for it BEFORE the create_node.
+For update_node, use the exact nodeId from the current state above.
+For create_node with parentNodeId, use the exact ID of the parent node from the current state.`
 }
 
 export async function extractFromEntries(
   state: MapState,
-  entries: Array<{ id: string; body: string; storyId?: string | null; processed: boolean | null; createdAt: Date | null }>
+  entries: Array<{ id: string; body: string; nodeId?: string | null; processed: boolean | null; createdAt: Date | null }>
 ): Promise<z.infer<typeof ActionSchema>['actions']> {
-  // Find story labels for scoped entries
-  const allStories = state.roles.flatMap(r => {
-    const collect = (s: any): any[] => [s, ...(s.children || []).flatMap(collect)]
-    return r.stories.flatMap(collect)
-  })
-  const storyById = new Map(allStories.map(s => [s.id, s]))
+  // Fetch all nodes and edges for the prompt
+  const allNodes = await db.select().from(nodes)
+  const allEdges = await db.select().from(edges)
+
+  // Find node labels for scoped entries
+  const nodeById = new Map(allNodes.map(n => [n.id, n]))
 
   const entriesText = entries.map(e => {
-    const scope = e.storyId && storyById.has(e.storyId)
-      ? ` [REPLY TO STORY: "${storyById.get(e.storyId)!.label}" (id: ${e.storyId})]`
+    const scope = e.nodeId && nodeById.has(e.nodeId)
+      ? ` [REPLY TO: "${nodeById.get(e.nodeId)!.label}" (id: ${e.nodeId})]`
       : ''
     return `[${e.createdAt?.toISOString() || 'unknown'}]${scope} ${e.body}`
   }).join('\n\n')
 
   const { experimental_output } = await generateText({
     model: 'anthropic/claude-sonnet-4.6' as any,
-    system: buildSystemPrompt(state),
+    system: buildSystemPrompt(allNodes, allEdges),
     prompt: `Analyze these journal entries and return structured actions:\n\n${entriesText}`,
     experimental_output: Output.object({ schema: ActionSchema }),
   })
@@ -120,63 +145,60 @@ export async function extractFromEntries(
 
   const actions = result.actions
 
-  // Execute actions against the database
+  // Build a name→id map for roles
   const roleNameToId = new Map<string, string>()
-  for (const r of state.roles) {
-    roleNameToId.set(r.name.toLowerCase(), r.id)
+  for (const n of allNodes) {
+    if (n.type === 'role') {
+      roleNameToId.set(n.label.toLowerCase(), n.id)
+    }
   }
 
   for (const action of actions) {
     try {
       switch (action.type) {
         case 'create_role': {
-          const role = await createRole({
-            name: action.name,
+          const role = await createNode({
+            type: 'role',
+            label: action.label,
             icon: action.icon,
             vision: action.vision,
           })
-          roleNameToId.set(action.name.toLowerCase(), role.id)
+          roleNameToId.set(action.label.toLowerCase(), role.id)
           break
         }
-        case 'create_story': {
-          const roleIds = action.roleNames
-            .map(name => roleNameToId.get(name.toLowerCase()))
-            .filter((id): id is string => !!id)
-          await createStory({
+        case 'create_node': {
+          // Find parent: either an explicit parentNodeId, or the role
+          let parentId: string | null = null
+
+          if (action.parentNodeId) {
+            parentId = action.parentNodeId
+          } else {
+            parentId = roleNameToId.get(action.parentRoleName.toLowerCase()) || null
+          }
+
+          const node = await createNode({
+            parentId,
+            type: action.nodeType,
             label: action.label,
-            narrative: action.narrative,
-            state: action.state,
-            roleIds,
+            body: action.body,
+            state: action.state || (action.nodeType === 'problem' ? undefined : 'messy'),
           })
+
+          // Create belongs_to edges for additional roles
+          if (action.additionalRoleNames) {
+            for (const roleName of action.additionalRoleNames) {
+              const roleId = roleNameToId.get(roleName.toLowerCase())
+              if (roleId) {
+                await createEdge({ sourceId: node.id, targetId: roleId, type: 'belongs_to' })
+              }
+            }
+          }
           break
         }
-        case 'create_substory': {
-          await createStory({
-            label: action.label,
-            narrative: action.narrative,
-            state: action.state,
-            parentId: action.parentStoryId,
-          })
-          break
-        }
-        case 'update_story': {
-          await updateStory(action.storyId, {
+        case 'update_node': {
+          await updateNode(action.nodeId, {
             ...action.updates,
             lastMentioned: new Date(),
-          })
-          break
-        }
-        case 'create_problem': {
-          // Find story by label match
-          const allStories = state.roles.flatMap(r => r.stories)
-          const matchingStory = allStories.find(s =>
-            s.label.toLowerCase().includes(action.storyLabel.toLowerCase()) ||
-            action.storyLabel.toLowerCase().includes(s.label.toLowerCase())
-          )
-          await createProblem({
-            storyId: matchingStory?.id,
-            description: action.description,
-            emergedFrom: action.emergedFrom,
           })
           break
         }
