@@ -91,7 +91,7 @@ RULES:
 
 3. PROJECT vs STORY heuristic: If it has a name, a deliverable, and will persist across multiple entries → project. If it's a narrative arc, a feeling, or a moment → story. "Holly's bike" = project. "Got a pay rise" = story. "Building Gemba" = project.
 
-4. TASK heuristic: A single actionable step with a clear done state. "Take bike to Russell's" = task. "Get Holly riding" = project (too big for one step).
+4. TASK heuristic: A single actionable step with a clear done state. "Take bike to Russell's" = task. "Get Holly riding" = project (too big for one step). IMPORTANT: A task is only "clear" (done) when there is explicit evidence it was COMPLETED — "I took the bike to Russell's", "done", "finished". Planning to do something ("let's take it Saturday") means the task is "progressing" at most. Future intentions are NOT completions.
 
 5. Infer state from emotional tone:
    - "on fire," "urgent," "crisis" → burning
