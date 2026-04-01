@@ -108,7 +108,9 @@ RULES:
 
 9. CROSS-REFERENCES: If a project relates to multiple roles, set parentRoleName to its primary home and list the others in additionalRoleNames. This creates belongs_to edges.
 
-10. Be conservative. When unsure, update an existing node rather than creating a new one.
+10. SEPARATE CONTEXT FROM CAUSE. A journal entry might mention a role as context but describe something that belongs elsewhere. "Stuck at Rosie's, couldn't get out the door" is a self-management problem, not a Father story — even though it happened during parenting time. Ask: "Is this ABOUT the role, or did it just happen DURING the role?" Place nodes where the actual pattern lives.
+
+11. Be conservative. When unsure, update an existing node rather than creating a new one.
 
 For create_node, use parentRoleName matching an existing role name. If the role doesn't exist, also emit a create_role action for it BEFORE the create_node.
 For update_node, use the exact nodeId from the current state above.

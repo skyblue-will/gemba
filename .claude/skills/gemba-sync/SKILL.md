@@ -14,30 +14,29 @@ Process all unprocessed journal entries through AI extraction and update the map
 
 - After writing multiple journal entries without the app running
 - When auto-extraction failed (entries show amber dots)
-- To reprocess entries after changing roles or restructuring the map
 - When you say "sync", "update the map", or "process my journal"
+- Note: This only processes UNPROCESSED entries. To rebuild everything from scratch (e.g. after changing extraction rules), use `/gemba-reprocess` instead.
 
 ## Configuration
 
-The skill needs the app's base URL and API key.
+Production-only project. Always hits the live API.
 
 ```bash
-# Detect base URL
-if [ -f .env.local ]; then
-  source <(grep -E '^(GEMBA_API_KEY|NEXT_PUBLIC_APP_URL)' .env.local | sed 's/^/export /')
-fi
-GEMBA_URL="${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
+GEMBA_URL="https://gemba-beige.vercel.app"
+source <(grep -E '^GEMBA_API_KEY=' gemba/.env.local 2>/dev/null | sed 's/^/export /')
 GEMBA_KEY="${GEMBA_API_KEY:-}"
 echo "URL: $GEMBA_URL"
 echo "KEY: ${GEMBA_KEY:+set}"
 ```
 
-If `GEMBA_URL` points to localhost, confirm the dev server is running:
+If `GEMBA_KEY` is empty: run `vercel env pull gemba/.env.local --environment=production` to fetch it.
+
+Verify connectivity:
 ```bash
-curl -sf "$GEMBA_URL/api/state" -H "x-api-key: $GEMBA_KEY" > /dev/null 2>&1 && echo "READY" || echo "NOT_RUNNING"
+curl -sf "$GEMBA_URL/api/state" -H "x-api-key: $GEMBA_KEY" > /dev/null 2>&1 && echo "READY" || echo "UNREACHABLE"
 ```
 
-If `NOT_RUNNING`: tell the user "Dev server isn't running. Start it with `npm run dev` first, or set NEXT_PUBLIC_APP_URL to your production URL."
+If `UNREACHABLE`: "Can't reach Gemba. Check your API key with `vercel env pull gemba/.env.local --environment=production`."
 
 ## Execution
 
@@ -94,5 +93,5 @@ MAP STATE:
 ## Error handling
 
 - If extraction returns an error: "Extraction failed: {error}. Entries remain unprocessed. Try again or check the server logs."
-- If the API is unreachable: "Can't reach Gemba at {URL}. Is the server running?"
-- If auth fails (401): "API key rejected. Check GEMBA_API_KEY in .env.local matches the server."
+- If the API is unreachable: "Can't reach Gemba. Check connectivity."
+- If auth fails (401): "API key rejected. Re-pull with `vercel env pull gemba/.env.local --environment=production`."
