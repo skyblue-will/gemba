@@ -23,20 +23,30 @@ Production-only project. Always hits the live API.
 
 ```bash
 GEMBA_URL="https://gemba-beige.vercel.app"
-source <(grep -E '^GEMBA_API_KEY=' gemba/.env.local 2>/dev/null | sed 's/^/export /')
+
+# Look for GEMBA_API_KEY in known locations (working dir may vary)
+for f in gemba/.env.local .env.local; do
+  [ -f "$f" ] && source <(grep -E '^GEMBA_API_KEY=' "$f" 2>/dev/null | head -1 | sed 's/^/export /')
+  [ -n "${GEMBA_API_KEY:-}" ] && break
+done
 GEMBA_KEY="${GEMBA_API_KEY:-}"
+
 echo "URL: $GEMBA_URL"
 echo "KEY: ${GEMBA_KEY:+set}"
 ```
 
-If `GEMBA_KEY` is empty: run `vercel env pull gemba/.env.local --environment=production` to fetch it.
+If `GEMBA_KEY` is empty, pull it from Vercel:
+```bash
+cd gemba && npx vercel env pull .env.local --environment=production && cd ..
+```
+Then re-run the configuration block above.
 
 Verify connectivity:
 ```bash
 curl -sf "$GEMBA_URL/api/state" -H "x-api-key: $GEMBA_KEY" > /dev/null 2>&1 && echo "READY" || echo "UNREACHABLE"
 ```
 
-If `UNREACHABLE`: "Can't reach Gemba. Check your API key with `vercel env pull gemba/.env.local --environment=production`."
+If `UNREACHABLE`: check the API key is correct. Re-pull with `cd gemba && npx vercel env pull .env.local --environment=production`.
 
 ## Execution
 
@@ -94,4 +104,4 @@ MAP STATE:
 
 - If extraction returns an error: "Extraction failed: {error}. Entries remain unprocessed. Try again or check the server logs."
 - If the API is unreachable: "Can't reach Gemba. Check connectivity."
-- If auth fails (401): "API key rejected. Re-pull with `vercel env pull gemba/.env.local --environment=production`."
+- If auth fails (401): "API key rejected. Re-pull with `cd gemba && npx vercel env pull .env.local --environment=production`."
