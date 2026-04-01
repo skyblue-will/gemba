@@ -35,8 +35,10 @@ export function MapCanvas({ unprocessedCount, onReply }: MapCanvasProps) {
       const res = await fetch(url)
       if (!res.ok) return
       const data = await res.json()
-      // /api/nodes returns an array, /api/nodes/:id returns a node with children
-      setChildren(nodeId ? data.children : data)
+      // /api/nodes returns flat array, /api/nodes/:id returns a node with children
+      const items = nodeId ? data.children : data
+      // Ensure every item has children/edges arrays for NodeCard
+      setChildren((items || []).map((n: any) => ({ ...n, children: n.children || [], edges: n.edges || [] })))
       setLoading(false)
     } catch {
       setLoading(false)
